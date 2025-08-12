@@ -1,39 +1,39 @@
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local hrp = character:WaitForChild("HumanoidRootPart")
 
--- الإحداثيات
-local firstTeleport = Vector3.new(275.19, 4.03, -169.78)
-local teleportPositions = {
+local WALK_SPEED = 35 -- عدل هنا سرعة المشي حسب رغبتك
+
+local startPoint = Vector3.new(275.19, 4.03, -169.78) -- التلبورت للنقطة الأولى فقط
+local points = {
     Vector3.new(293.22, 4.00, -170.01),
     Vector3.new(221.01, 4.03, -78.31),
 }
 
-local currentIndex = 0
-local autoDelay = 0 -- أسرع سرعة ممكنة بدون انتظار
-local firstTeleportDone = false
-
-local FARM_INTERVAL = 240 -- 4 دقائق بالثواني
+local FARM_INTERVAL = 240
 local farming = true
 
--- إنشاء واجهة GUI صغيرة على اليمين تعرض الحقوق فقط
+-- GUI الحقوق والتوضيح
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "FarmGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 40)
-frame.Position = UDim2.new(1, -190, 0.95, -50)
+frame.Size = UDim2.new(0, 380, 0, 90)
+frame.Position = UDim2.new(1, -390, 0.9, -100)
 frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 frame.BackgroundTransparency = 0.3
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
 local rightsLabel = Instance.new("TextLabel")
-rightsLabel.Size = UDim2.new(1, 0, 1, 0)
+rightsLabel.Size = UDim2.new(1, 0, 0, 35)
+rightsLabel.Position = UDim2.new(0, 0, 0, 0)
 rightsLabel.BackgroundTransparency = 1
 rightsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 rightsLabel.Font = Enum.Font.SourceSansBold
@@ -41,40 +41,52 @@ rightsLabel.TextScaled = true
 rightsLabel.Text = "Dev.Anwar 🇮🇶 | TikTok: @hf4_l"
 rightsLabel.Parent = frame
 
--- دالة التلبورت
-local function teleportTo(position)
-    local character = player.Character
-    if character then
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(position)
-        end
-    end
-end
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -10, 0, 50)
+infoLabel.Position = UDim2.new(0, 5, 0, 35)
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+infoLabel.Font = Enum.Font.SourceSans
+infoLabel.TextWrapped = true
+infoLabel.Text = "تم ضبط سرعة المشي على "..WALK_SPEED.." في هذه الماب لضمان احتساب النقاط وتجنب مشاكل الحماية."
+infoLabel.Parent = frame
 
--- دالة التشغيل التلقائي للتنقل بين النقاط
-local function autoFarm()
+-- تثبيت سرعة المشي بشكل دائم
+coroutine.wrap(function()
     while farming do
-        if not firstTeleportDone then
-            teleportTo(firstTeleport)
-            firstTeleportDone = true
-            wait(0)
-        else
-            currentIndex = currentIndex + 1
-            if currentIndex > #teleportPositions then
-                currentIndex = 1
-            end
-            teleportTo(teleportPositions[currentIndex])
-            wait(autoDelay)
+        if humanoid and humanoid.Parent then
+            humanoid.WalkSpeed = WALK_SPEED
         end
+        wait(1)
     end
+end)()
+
+-- التلبورت للنقطة الأولى مرة واحدة
+hrp.CFrame = CFrame.new(startPoint)
+wait(0.5)
+humanoid.WalkSpeed = WALK_SPEED
+
+-- الحركة المستمرة بين النقطتين
+local currentPointIndex = 1
+while farming do
+    local targetPos = points[currentPointIndex]
+    local direction = (targetPos - hrp.Position)
+    local horizontalDir = Vector3.new(direction.X, 0, direction.Z)
+
+    if horizontalDir.Magnitude < 5 then
+        currentPointIndex = currentPointIndex + 1
+        if currentPointIndex > #points then
+            currentPointIndex = 1
+        end
+    else
+        humanoid:Move(horizontalDir.Unit, false)
+    end
+    wait()
 end
 
--- تشغيل الفارم التلقائي من البداية
-coroutine.wrap(autoFarm)()
-
--- إعادة دخول السيرفر بعد 4 دقائق (240 ثانية)
+-- إعادة الدخول بعد المدة المحددة
 delay(FARM_INTERVAL, function()
-    farming = false -- إيقاف الفارم قبل الخروج
+    farming = false
+    print("Rejoining server...")
     TeleportService:Teleport(game.PlaceId, player)
 end)
